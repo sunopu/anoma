@@ -2,7 +2,7 @@
 FROM elixir:1.17 AS builder
 # Get cmake in order to compile RocksDB
 RUN apt-get update
-RUN apt-get install -y cmake
+RUN apt-get install -y cmake protobuf-compiler
 # Install Rust in order to compile Cairo
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 # Add cargo to the path for future commands
