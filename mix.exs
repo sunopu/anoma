@@ -86,7 +86,7 @@ defmodule Anoma.MixProject do
       "Resource Machine": [
         ~r/^Anoma.RM.?/,
         ~r/^Anoma.Resource.?/,
-        ~r/^Anoma.ShieldedResource.?/
+        ~r/^Anoma.CairoResource.Resource.?/
       ],
       "Anoma Actors": [Anoma.Node],
       Mempool: ~r/^Anoma.Node.Mempool.?/,
@@ -122,6 +122,16 @@ defmodule Anoma.MixProject do
 
   def extras() do
     ["README.md" | all_docs("./documentation")]
+  end
+
+  # Run "mix help compile.app" to learn about applications.
+  def application do
+    [
+      extra_applications: [
+        :observer,
+        :wx
+      ]
+    ]
   end
 
   def escript do

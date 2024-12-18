@@ -3,7 +3,8 @@ defmodule Noun.Format do
   Parsing and printing of nouns.
   """
 
-  @dialyzer :no_improper_lists
+  @type parse_result() ::
+          {:ok, Noun.t()} | :error | {:continue, Noun.t(), String.t()}
 
   @spec parse_always(String.t()) :: Noun.t()
   def parse_always(string) do
@@ -11,7 +12,7 @@ defmodule Noun.Format do
     parsed
   end
 
-  @spec parse(String.t()) :: {:ok, Noun.t()} | :error
+  @spec parse(String.t()) :: parse_result()
   def parse(string) do
     # the hoon compiler emits integers with '.' thousands separators
     # it's easier to pre-strip these than to parse them
@@ -19,6 +20,7 @@ defmodule Noun.Format do
     parse_inner(dotless)
   end
 
+  @spec parse_inner(String.t()) :: parse_result()
   def parse_inner(string) do
     trimmed = String.trim_leading(string)
     maybe_atom = Integer.parse(trimmed)
@@ -35,6 +37,7 @@ defmodule Noun.Format do
     end
   end
 
+  @spec parse_cell(Noun.t()) :: parse_result()
   def parse_cell(<<?[, rest::binary>>) do
     head = parse_inner(rest)
 
@@ -71,6 +74,7 @@ defmodule Noun.Format do
     :error
   end
 
+  @spec parse_tail(String.t()) :: parse_result()
   def parse_tail(string) do
     result = parse_inner(string)
 
@@ -105,6 +109,7 @@ defmodule Noun.Format do
     end
   end
 
+  @spec print(Noun.t()) :: String.t()
   def print(noun) when is_integer(noun) do
     to_string(noun)
   end
@@ -113,6 +118,7 @@ defmodule Noun.Format do
     "[" <> print(h) <> " " <> print_tail(t) <> "]"
   end
 
+  @spec print_tail(Noun.t()) :: String.t()
   def print_tail(noun) when is_integer(noun) do
     to_string(noun)
   end

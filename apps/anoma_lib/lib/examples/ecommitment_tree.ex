@@ -1,7 +1,13 @@
 defmodule Examples.ECommitmentTree do
+  alias Examples.ETransparent.ETransaction
+  alias Anoma.TransparentResource.Transaction
+
   require ExUnit.Assertions
   import ExUnit.Assertions
 
+  alias Examples.ECairo
+
+  @spec tree_storage() :: atom()
   def tree_storage() do
     :cmtree_test
   end
@@ -36,6 +42,24 @@ defmodule Examples.ECommitmentTree do
     assert tree.table == nil
 
     tree
+  end
+
+  @doc """
+  A commitment tree with commits from ETransaction.swap_from_actions/1
+  """
+  @spec memory_backed_ct_with_trivial_swap(term()) ::
+          {CommitmentTree.t(), binary()}
+  def memory_backed_ct_with_trivial_swap(spec \\ sha256_32_spec()) do
+    tree = memory_backed_ct(spec)
+    transaction = ETransaction.swap_from_actions()
+
+    commits = Transaction.commitments(transaction)
+
+    {tree, anchor} = CommitmentTree.add(tree, commits |> Enum.to_list())
+
+    assert tree.size == MapSet.size(commits)
+
+    {tree, anchor}
   end
 
   @spec empty_mnesia_backed_ct(CommitmentTree.Spec.t()) :: CommitmentTree.t()
@@ -126,5 +150,21 @@ defmodule Examples.ECommitmentTree do
            "adding 2,500 keys in batches and one at the time is the same"
 
     ct_batches
+  end
+
+  @spec a_merkle_proof() ::
+          {CommitmentTree.t(), CommitmentTree.Proof.t(), any()}
+  def a_merkle_proof() do
+    cairo_spec = cairo_poseidon_spec()
+
+    cm_tree = empty_mnesia_backed_ct(cairo_spec)
+    input_resource_cm = ECairo.EResource.a_resource_commitment()
+
+    # Insert the input resource to the tree
+    {ct, anchor} = CommitmentTree.add(cm_tree, [input_resource_cm])
+    # Get the merkle proof of the input resource
+    merkle_proof = CommitmentTree.prove(ct, 0)
+
+    {ct, merkle_proof, anchor}
   end
 end

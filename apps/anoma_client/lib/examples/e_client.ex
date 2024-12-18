@@ -18,6 +18,7 @@ defmodule Anoma.Client.Examples.EClient do
   alias Anoma.Protobuf.Nock.Input
   alias Anoma.Protobuf.Nock.Prove
   alias Anoma.Protobuf.NockService
+  alias Anoma.Protobuf.NodeInfo
 
   import ExUnit.Assertions
 
@@ -53,6 +54,7 @@ defmodule Anoma.Client.Examples.EClient do
     - `:channel`    - The channel for making grpc requests.
     """
     field(:channel, any())
+    field(:client, EClient.t())
   end
 
   ############################################################
@@ -88,7 +90,8 @@ defmodule Anoma.Client.Examples.EClient do
   def create_example_client(enode \\ create_single_example_node()) do
     kill_existing_client()
 
-    {:ok, client} = Client.connect("localhost", enode.grpc_port, 0)
+    {:ok, client} =
+      Client.connect("localhost", enode.grpc_port, 0, enode.node_id)
 
     %EClient{supervisor: nil, client: client, node: enode}
   end
@@ -96,11 +99,11 @@ defmodule Anoma.Client.Examples.EClient do
   @doc """
   I create an example stub to a given clients GRPC endpoint.
   """
-  @spec create_example_connection() :: EConnection.t()
+  @spec create_example_connection(t()) :: EConnection.t()
   def create_example_connection(eclient \\ create_example_client()) do
     case GRPC.Stub.connect("localhost:#{eclient.client.grpc_port}") do
       {:ok, channel} ->
-        %EConnection{channel: channel}
+        %EConnection{channel: channel, client: eclient}
 
       {:error, reason} ->
         {:error, reason}
@@ -124,11 +127,10 @@ defmodule Anoma.Client.Examples.EClient do
   """
   @spec list_intents(EConnection.t()) :: EConnection.t()
   def list_intents(conn \\ setup()) do
-    request = %List.Request{}
-    Anoma.Protobuf.IntentsService.Stub
+    node_id = %NodeInfo{node_id: conn.client.node.node_id}
+    request = %List.Request{node_info: node_id}
 
     {:ok, _reply} = IntentsService.Stub.list_intents(conn.channel, request)
-
     conn
   end
 
@@ -137,7 +139,8 @@ defmodule Anoma.Client.Examples.EClient do
   """
   @spec add_intent(EConnection.t()) :: EConnection.t()
   def add_intent(conn \\ setup()) do
-    request = %Add.Request{intent: %Intent{value: 1}}
+    node_id = %NodeInfo{node_id: conn.client.node.node_id}
+    request = %Add.Request{node_info: node_id, intent: %Intent{value: 1}}
 
     {:ok, _reply} = IntentsService.Stub.add_intent(conn.channel, request)
 
@@ -157,18 +160,23 @@ defmodule Anoma.Client.Examples.EClient do
   @spec prove_something_text(EConnection.t()) :: Prove.Response.t()
   def prove_something_text(conn \\ setup()) do
     program = text_program_example()
-    input = text_input("1")
+    input1 = text_input("1")
+    input2 = text_input("2")
+    input3 = text_input("3")
+    input4 = text_input("4")
 
     request = %Prove.Request{
       program: {:text_program, program},
-      public_inputs: [input]
+      public_inputs: [input1, input2],
+      private_inputs: [input3, input4]
     }
 
-    {:ok, result} = NockService.Stub.prove(conn.channel, request)
+    {:ok, response} = NockService.Stub.prove(conn.channel, request)
+    {:success, success} = response.result
 
-    assert {:ok, 123} == Nock.Cue.cue(elem(result.result, 1))
+    assert {:ok, [1, 2, 3 | 4]} == Nock.Cue.cue(success.result)
 
-    result
+    success.result
   end
 
   @doc """
@@ -176,19 +184,25 @@ defmodule Anoma.Client.Examples.EClient do
   """
   @spec prove_something_jammed(EConnection.t()) :: Prove.Response.t()
   def prove_something_jammed(conn \\ setup()) do
-    program = Nock.Jam.jam([[1 | 123], 0 | 0])
-    input = jammed_input(Nock.Jam.jam(1))
+    program = jammed_program_example()
+    input1 = jammed_input(Nock.Jam.jam(1))
+    input2 = jammed_input(Nock.Jam.jam(2))
+    input3 = jammed_input(Nock.Jam.jam(3))
+    input4 = jammed_input(Nock.Jam.jam(4))
 
     request = %Prove.Request{
       program: {:jammed_program, program},
-      public_inputs: [input]
+      public_inputs: [input1, input2],
+      private_inputs: [input3, input4]
     }
 
-    {:ok, result} = NockService.Stub.prove(conn.channel, request)
+    {:ok, response} = NockService.Stub.prove(conn.channel, request)
 
-    assert {:ok, 123} == Nock.Cue.cue(elem(result.result, 1))
+    {:success, success} = response.result
 
-    result
+    assert {:ok, [1, 2, 3 | 4]} == Nock.Cue.cue(success.result)
+
+    success.result
   end
 
   @doc """
@@ -205,16 +219,110 @@ defmodule Anoma.Client.Examples.EClient do
       public_inputs: [input]
     }
 
-    {:ok, result} = NockService.Stub.prove(conn.channel, request)
+    {:ok, response} = NockService.Stub.run(conn.channel, request)
 
-    assert {:ok, 9} == Nock.Cue.cue(elem(result.result, 1))
+    {:success, success} = response.result
 
-    result
+    assert {:ok, 9} == Nock.Cue.cue(success.result)
+
+    success.result
+  end
+
+  @doc """
+  I run a Juvix program that squares its inputs without an argument.
+
+  I expect the result to be 0.
+  """
+  @spec prove_juvix_factorial_no_arguments(EConnection.t()) ::
+          Prove.Response.t()
+  def prove_juvix_factorial_no_arguments(conn \\ setup()) do
+    # assume the program and inputs are jammed
+    program = jammed_program_juvix_squared()
+
+    request = %Prove.Request{
+      program: {:jammed_program, program},
+      public_inputs: []
+    }
+
+    {:ok, response} = NockService.Stub.prove(conn.channel, request)
+
+    {:success, success} = response.result
+
+    assert {:ok, 0} == Nock.Cue.cue(success.result)
+
+    success.result
+  end
+
+  @doc """
+  I run a Juvix program that squares its inputs without an argument.
+
+  I expect the result to be 0.
+  """
+  @spec run_juvix_factorial_no_arguments(EConnection.t()) ::
+          Prove.Response.t()
+  def run_juvix_factorial_no_arguments(conn \\ setup()) do
+    # assume the program and inputs are jammed
+    program = jammed_program_juvix_squared()
+
+    request = %Prove.Request{
+      program: {:jammed_program, program},
+      public_inputs: []
+    }
+
+    {:ok, response} = NockService.Stub.run(conn.channel, request)
+
+    {:success, success} = response.result
+
+    assert {:ok, 0} == Nock.Cue.cue(success.result)
+
+    success.result
+  end
+
+  @spec run_juvix_with_hints(EConnection.t()) :: Prove.Response.t()
+  def run_juvix_with_hints(conn \\ setup()) do
+    # assume the program and inputs are jammed
+    program = jammed_program_tracing()
+
+    request = %Prove.Request{
+      program: {:jammed_program, program},
+      public_inputs: []
+    }
+
+    {:ok, response} = NockService.Stub.run(conn.channel, request)
+
+    {:success, success} = response.result
+
+    assert [1, 4, 2, 4] == Enum.map(success.output, &Nock.Cue.cue!/1)
+
+    assert {:ok, 0} == Nock.Cue.cue(success.result)
+
+    success.result
   end
 
   ############################################################
   #                           Helpers                        #
   ############################################################
+
+  @spec jammed_program_tracing() :: binary()
+  def jammed_program_tracing() do
+    :code.priv_dir(:anoma_client)
+    |> Path.join("test_juvix/Tracing.nockma")
+    |> File.read!()
+  end
+
+  @spec noun_program_tracing() :: Noun.t()
+  def noun_program_tracing() do
+    jammed_program_tracing()
+    |> Nock.Cue.cue()
+    |> elem(1)
+  end
+
+  @spec text_program_tracing() :: String.t()
+  def text_program_tracing() do
+    jammed_program_tracing()
+    |> Nock.Cue.cue()
+    |> elem(1)
+  end
 
   @spec jammed_program_juvix_squared() :: binary()
   def jammed_program_juvix_squared() do
@@ -232,7 +340,7 @@ defmodule Anoma.Client.Examples.EClient do
 
   @spec text_program_example() :: binary()
   def text_program_example() do
-    "[[1 123] 0 0]"
+    "[[0 6] 0 0]"
   end
 
   @spec jammed_program_example() :: binary()

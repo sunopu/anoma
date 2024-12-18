@@ -14,6 +14,7 @@ defmodule Anoma.Utility do
   @doc """
   Helps labeling for `Kino.Process.seq_trace/2`, for the Router abstraction
   """
+  @spec message_label(any()) :: {:ok, String.t()} | :continue
   def message_label(message) do
     case message do
       {:"$gen_call", _ref, {:router_call, _, term}} ->
@@ -71,18 +72,14 @@ defmodule Anoma.Utility do
   documentation practices.
   """
 
-  defmacro defbug(name, do: body) do
+  defmacro defbug(name, expr \\ nil) do
     if Mix.env() == :debug do
       quote do
-        def unquote(name) do
-          unquote(body)
-        end
+        def(unquote(name), unquote(expr))
       end
     else
       quote do
-        defp unquote(name) do
-          unquote(body)
-        end
+        defp(unquote(name), unquote(expr))
       end
     end
   end

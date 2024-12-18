@@ -3,9 +3,12 @@ defmodule Anoma.Client.Connection.GRPCProxy do
   use TypedStruct
 
   alias Anoma.Protobuf.Intents.Add
+  alias Anoma.Protobuf.Intents.Intent
   alias Anoma.Protobuf.Intents.List
   alias Anoma.Protobuf.IntentsService
-  alias Anoma.Protobuf.Intents.Intent
+  alias Anoma.Protobuf.NodeInfo
+  alias Anoma.Protobuf.Mempool.AddTransaction
+  alias Anoma.Protobuf.MempoolService
   require Logger
 
   ############################################################
@@ -22,18 +25,21 @@ defmodule Anoma.Client.Connection.GRPCProxy do
     - `:port`    - The port on which the remote node is listening to GRPC.
     - `:host`    - The host on which the remote node is listening to GRPC.
     - `:channel` - The channel to the remote grpc.
+    - `:node_id` - The id of the remote node.
     """
     field(:port, integer())
     field(:host, String.t())
     field(:channel, any())
+    field(:node_id, String.t())
   end
 
   ############################################################
   #                    Genserver Helpers                     #
   ############################################################
 
+  @spec start_link(Keyword.t()) :: GenServer.on_start()
   def start_link(args) do
-    args = Keyword.validate!(args, [:port, :host])
+    args = Keyword.validate!(args, [:port, :host, :node_id])
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
   end
 
@@ -70,13 +76,15 @@ defmodule Anoma.Client.Connection.GRPCProxy do
 
   @impl true
   def handle_call({:list_intents}, _from, state) do
-    request = %List.Request{}
+    node_info = %NodeInfo{node_id: state.node_id}
+    request = %List.Request{node_info: node_info}
     intents = IntentsService.Stub.list_intents(state.channel, request)
     {:reply, intents, state}
   end
 
   def handle_call({:add_intent, intent}, _from, state) do
-    request = %Add.Request{intent: intent}
+    node_info = %NodeInfo{node_id: state.node_id}
+    request = %Add.Request{node_info: node_info, intent: intent}
     result = IntentsService.Stub.add_intent(state.channel, request)
     {:reply, result, state}
   end

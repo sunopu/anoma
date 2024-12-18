@@ -35,6 +35,7 @@ defmodule Anoma.TransparentResource.LogicProof do
     field(:other_private, Noun.t(), default: <<>>)
   end
 
+  @spec verify(t()) :: boolean()
   def verify(proof = %LogicProof{}) do
     {public_inputs, private_inputs} = internal_logic_inputs(proof)
 
@@ -86,8 +87,17 @@ defmodule Anoma.TransparentResource.LogicProof do
       {:ok,
        %LogicProof{
          resource: self_resource,
-         commitments: MapSet.new(Noun.list_nock_to_erlang(commits)),
-         nullifiers: MapSet.new(Noun.list_nock_to_erlang(nulls)),
+         # THEY MUST BE BINARY
+         commitments:
+           MapSet.new(
+             Noun.list_nock_to_erlang(commits),
+             &Noun.atom_integer_to_binary/1
+           ),
+         nullifiers:
+           MapSet.new(
+             Noun.list_nock_to_erlang(nulls),
+             &Noun.atom_integer_to_binary/1
+           ),
          self_tag: tag,
          other_public: other_public,
          committed_plaintexts: committed_plaintexts,
@@ -103,6 +113,7 @@ defmodule Anoma.TransparentResource.LogicProof do
 
   defimpl Noun.Nounable, for: __MODULE__ do
     # We chose an interesting Nock encoding
+    @impl true
     def to_noun(proof = %Anoma.TransparentResource.LogicProof{}) do
       {public_inputs, private_inputs} =
         LogicProof.internal_logic_inputs(proof)
@@ -160,6 +171,10 @@ defmodule Anoma.TransparentResource.LogicProof do
   end
 
   @spec from_noun_plaintext(Noun.t()) :: {:ok, MapSet.t(Resource.t())}
+  defp from_noun_plaintext(noun) when noun in @empty do
+    {:ok, MapSet.new([])}
+  end
+
   defp from_noun_plaintext(noun) when is_list(noun) do
     maybe_resources =
       Enum.map(Noun.list_nock_to_erlang(noun), &Resource.from_noun/1)
@@ -167,7 +182,7 @@ defmodule Anoma.TransparentResource.LogicProof do
     if Enum.any?(maybe_resources, &(:error == &1)) do
       :error
     else
-      {:ok, Map.new(Enum.map(maybe_resources, fn {:ok, x} -> x end))}
+      {:ok, MapSet.new(Enum.map(maybe_resources, fn {:ok, x} -> x end))}
     end
   end
 

@@ -42,7 +42,11 @@ defmodule Anoma.Node.Transport.Messages do
 
   # ----------------------------------------------------------------------------
   # Dump Mempool
-
+  @spec proto_to_call(
+          UnspentResources.Request.t() | any(),
+          binary(),
+          String.t()
+        ) :: {:reply, Envelope.t()} | {:is_reply, {:ok, any()}, binary()}
   def proto_to_call(%Dump.Request{}, ref, local_node_id) do
     # call the engine
     result = ["dump1", "dump2"]
@@ -53,7 +57,7 @@ defmodule Anoma.Node.Transport.Messages do
     {:reply, wrap(response, :mempool_dump_response, local_node_id, ref)}
   end
 
-  def proto_to_call(%Dump.Response{} = response, ref, _local_node_id) do
+  def proto_to_call(response = %Dump.Response{}, ref, _local_node_id) do
     # construct the reply message
     result = response.dumps
     {:is_reply, {:ok, result}, ref}
@@ -72,7 +76,7 @@ defmodule Anoma.Node.Transport.Messages do
     {:reply, wrap(response, :add_intent_response, local_node_id, ref)}
   end
 
-  def proto_to_call(%Add.Response{} = response, ref, _local_node_id) do
+  def proto_to_call(response = %Add.Response{}, ref, _local_node_id) do
     # construct the reply message
     result = response.result
     {:is_reply, {:ok, result}, ref}
@@ -91,7 +95,7 @@ defmodule Anoma.Node.Transport.Messages do
     {:reply, wrap(response, :list_intents_response, local_node_id, ref)}
   end
 
-  def proto_to_call(%List.Response{} = response, ref, _local_node_id) do
+  def proto_to_call(response = %List.Response{}, ref, _local_node_id) do
     # construct the reply message
     {:is_reply, {:ok, response.intents}, ref}
   end
@@ -109,7 +113,7 @@ defmodule Anoma.Node.Transport.Messages do
     {:reply, wrap(response, :nullifiers_response, local_node_id, ref)}
   end
 
-  def proto_to_call(%Nullifiers.Response{} = response, ref, _local_node_id) do
+  def proto_to_call(response = %Nullifiers.Response{}, ref, _local_node_id) do
     # construct the reply message
     {:is_reply, {:ok, response.nullifiers}, ref}
   end
@@ -128,7 +132,7 @@ defmodule Anoma.Node.Transport.Messages do
     {:reply, wrap(response, :unrevealed_commits_response, local_node_id, ref)}
   end
 
-  def proto_to_call(%UnrevealedCommits.Response{} = response, ref, _) do
+  def proto_to_call(response = %UnrevealedCommits.Response{}, ref, _) do
     # construct the reply message
     {:is_reply, {:ok, response.commits}, ref}
   end
@@ -147,7 +151,7 @@ defmodule Anoma.Node.Transport.Messages do
     {:reply, wrap(response, :unspent_resources_response, local_node_id, ref)}
   end
 
-  def proto_to_call(%UnspentResources.Response{} = response, ref, _) do
+  def proto_to_call(response = %UnspentResources.Response{}, ref, _) do
     # construct the reply message
     {:is_reply, {:ok, response.unspent_resources}, ref}
   end
@@ -180,6 +184,7 @@ defmodule Anoma.Node.Transport.Messages do
   # ----------------------------------------------------------------------------
   # List Intents
 
+  @spec call_to_proto(atom(), module(), String.t()) :: Envelope.t()
   def call_to_proto(:list_intents, Intentpool, local_node_id) do
     request = %List.Request{}
 

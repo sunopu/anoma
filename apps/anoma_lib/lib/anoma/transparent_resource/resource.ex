@@ -38,6 +38,7 @@ defmodule Anoma.TransparentResource.Resource do
     field(:rseed, <<>>, default: <<>>)
   end
 
+  @spec to_noun(Resource.t()) :: Noun.t()
   def to_noun(resource = %Resource{}) do
     [
       resource.label,
@@ -51,6 +52,7 @@ defmodule Anoma.TransparentResource.Resource do
     ]
   end
 
+  @spec from_noun(Noun.t()) :: :error | {:ok, t()}
   def from_noun([
         label,
         logic,
@@ -62,16 +64,17 @@ defmodule Anoma.TransparentResource.Resource do
         rseed | terminator
       ])
       when terminator in [0, <<>>, <<0>>, []] do
+    # we make sure the types are respected
     {:ok,
      %Resource{
-       label: label,
+       label: Noun.atom_integer_to_binary(label),
        logic: logic,
        ephemeral: noun_to_bool(ephemeral),
-       quantity: quantity,
-       data: data,
-       nullifier_key: nullifier_key,
-       nonce: nonce,
-       rseed: rseed
+       quantity: Noun.atom_binary_to_integer(quantity),
+       data: Noun.atom_integer_to_binary(data),
+       nullifier_key: Noun.atom_integer_to_binary(nullifier_key, 32),
+       nonce: Noun.atom_integer_to_binary(nonce, 32),
+       rseed: Noun.atom_integer_to_binary(rseed)
      }}
   end
 
@@ -79,6 +82,7 @@ defmodule Anoma.TransparentResource.Resource do
     :error
   end
 
+  @spec noun_to_bool(Noun.t()) :: boolean()
   def noun_to_bool(zero) when zero in [0, <<>>, <<0>>, []] do
     true
   end
@@ -87,28 +91,34 @@ defmodule Anoma.TransparentResource.Resource do
     false
   end
 
+  @spec bool_to_noun(true) :: 0
   def bool_to_noun(true) do
     0
   end
 
+  @spec bool_to_noun(false) :: 1
   def bool_to_noun(false) do
     1
   end
 
+  @spec kind(t()) :: binary()
   def kind(%Resource{label: label, logic: logic}) do
     kind = label <> Noun.atom_integer_to_binary(Nock.Jam.jam(logic))
     :crypto.hash(:sha256, kind)
   end
 
+  @spec delta(t()) :: Anoma.TransparentResource.Delta.t()
   def delta(resource = %Resource{}) do
     %{kind(resource) => resource.quantity}
   end
 
+  @spec commitment(t()) :: commitment()
   def commitment(resource = %Resource{}) do
     binary_resource = resource |> to_noun() |> Nock.Jam.jam()
     "CM_" <> binary_resource
   end
 
+  @spec nullifier(t()) :: nullifier()
   def nullifier(resource = %Resource{}) do
     binary_resource = resource |> to_noun() |> Nock.Jam.jam()
     "NF_" <> binary_resource

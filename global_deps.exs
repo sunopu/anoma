@@ -2,7 +2,7 @@
 [
   {:cairo,
    git: "https://github.com/anoma/aarm-cairo",
-   ref: "dd2ed877e8d7c326a4a88dcf86ae32cd0183f3ae"},
+   ref: "8d3d356b519ccbf99df75b6a99961689749fbf1a"},
   {:enacl,
    git: "https://github.com/anoma/enacl/",
    ref: "23173637c495b85d56f205e4721cfe5afdef92e9"},
@@ -21,6 +21,7 @@
   {:rexbug, ">= 2.0.0-rc1"},
   {:toml, "~> 0.7"},
   {:typed_struct, "~> 0.3.0"},
+  {:lexical_credo, "~> 0.1.0", only: [:dev, :test]},
   # non-runtime dependencies below
   {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
   {:dialyxir, "~> 1.3", only: [:dev], runtime: false},
