@@ -332,6 +332,7 @@ defmodule Anoma.Node.Logging do
 
   @spec restart_with_replay(String.t()) :: DynamicSupervisor.on_start_child()
   def restart_with_replay(node_id) do
+    # if evnets or updates table have data, there was previous data
     event_table = Tables.node_table_name(node_id, Logging.Events)
     block_table = Tables.node_table_name(node_id, Storage.Blocks)
     values_table = Tables.node_table_name(node_id, Storage.Values)
