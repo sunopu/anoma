@@ -4,6 +4,5 @@ defmodule Anoma.Client.Api.Endpoint do
 
   intercept(GRPC.Server.Interceptors.Logger)
   run(Anoma.Client.Api.Servers.Intents)
-  run(Anoma.Client.Api.Servers.Indexer)
   run(Anoma.Client.Api.Servers.Nock)
 end
