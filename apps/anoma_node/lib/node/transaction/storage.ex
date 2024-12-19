@@ -46,7 +46,6 @@ defmodule Anoma.Node.Transaction.Storage do
   - `add/2`
   - `commit/3`
   """
-  alias Anoma.Node.Transaction.Storage
   alias Anoma.Node.Tables
   alias Anoma.Node.Registry
   alias Anoma.Node
@@ -171,7 +170,7 @@ defmodule Anoma.Node.Transaction.Storage do
 
     # initialize the tables in the mnesia backend
     case Tables.initialize_tables_for_node(args[:node_id]) do
-      :ok ->
+      {:ok, _} ->
         state = struct(__MODULE__, Enum.into(args, %{}))
 
         {:ok, state}

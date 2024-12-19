@@ -25,6 +25,7 @@ defmodule Anoma.Node.Tables do
     {Values, [:key, :value]},
     {Updates, [:key, :value]}
   ]
+
   @doc """
   I return the table name for the given node its event table.
   """
@@ -37,6 +38,7 @@ defmodule Anoma.Node.Tables do
   I return the table name for the given node its commitment tree.
   I can be called without a node id too. In that case I use "no_node" as node id.
   """
+  @spec table_commitment_tree(String.t()) :: atom()
   def table_commitment_tree(node_id \\ "no_node") do
     node_table_name(node_id, CommitmentTree)
   end
@@ -44,6 +46,7 @@ defmodule Anoma.Node.Tables do
   @doc """
   I return the table name for the given node its blocks.
   """
+  @spec table_blocks(String.t()) :: atom()
   def table_blocks(node_id) do
     node_table_name(node_id, Blocks)
   end
@@ -51,6 +54,7 @@ defmodule Anoma.Node.Tables do
   @doc """
   I return the table name for the given node its values.
   """
+  @spec table_values(String.t()) :: atom()
   def table_values(node_id) do
     node_table_name(node_id, Values)
   end
@@ -58,26 +62,27 @@ defmodule Anoma.Node.Tables do
   @doc """
   I return the table name for the given node its updates.
   """
+  @spec table_updates(String.t()) :: atom()
   def table_updates(node_id) do
     node_table_name(node_id, Values)
   end
 
-  @doc """
-  Given a node id, I check whether there is existing data for this node
-  present in the tables.
-  I return true if there is data, false if there is not.
-  """
-  @spec existing_data?(String.t()) :: boolean
-  def existing_data?(node_id) do
-    true
-  end
+  # @doc """
+  # Given a node id, I check whether there is existing data for this node
+  # present in the tables.
+  # I return true if there is data, false if there is not.
+  # """
+  # @spec existing_data?(String.t()) :: boolean
+  # def existing_data?(node_id) do
+  #   @tables
+  # end
 
   @doc """
   I initialize the tables for a given node id.
   I do this by creating all tables in the mnesia storage.
   """
   @spec initialize_tables_for_node(String.t()) ::
-          :ok | {:error, :failed_to_initialize_tables}
+          {:ok, :existing | :created} | {:error, :failed_to_initialize_tables}
   def initialize_tables_for_node(node_id) do
     @tables
     |> Enum.map(fn {table, fields} ->
@@ -88,10 +93,16 @@ defmodule Anoma.Node.Tables do
       {:error, :failed_to_create_table, _table, _fields, _err} ->
         {:error, :failed_to_initialize_tables}
 
-      tables ->
-        case :mnesia.wait_for_tables(tables, 10_000) do
+      {:ok, {created, existing}} ->
+        case :mnesia.wait_for_tables(created ++ existing, 10_000) do
           :ok ->
-            :ok
+            case {created, existing} do
+              {_, []} ->
+                {:ok, :created}
+
+              _ ->
+                {:ok, :existing}
+            end
 
           {:timeout, _tables} ->
             {:error, :failed_to_initialize_tables}
@@ -180,7 +191,7 @@ defmodule Anoma.Node.Tables do
   # I create a table with the given name, scoped to a specific node.
   # """
   @spec create_table(atom(), list(atom())) ::
-          :ok | {:error, :failed_to_create_table, any()}
+          {:ok, :exists | :created} | {:error, :failed_to_create_table, any()}
   def create_table(name, fields) do
     # determine whether to use rocksdb options or not
     table_opts =
@@ -189,10 +200,10 @@ defmodule Anoma.Node.Tables do
 
     case :mnesia.create_table(name, table_opts) do
       {:aborted, {:already_exists, _}} ->
-        :ok
+        {:ok, :exists}
 
       {:atomic, :ok} ->
-        :ok
+        {:ok, :created}
 
       err ->
         {:error, :failed_to_create_table, err}
@@ -201,22 +212,32 @@ defmodule Anoma.Node.Tables do
 
   # @doc """
   # I create all the tables given to me for the specific node.
-  # If I fail in creating a table, I abort and return an error for which table failed.
+  # I return a list of created tables, and a list of tables that already existed.
   # """
   @spec create_tables(list({atom(), list(atom())})) ::
-          list(atom())
+          {:ok, {[atom()], [atom()]}}
           | {:error, :failed_to_create_table, atom(), list(atom()), any()}
   def create_tables(table_list) do
     table_list
-    |> Enum.reduce_while([], fn {table, fields}, tables ->
+    |> Enum.reduce_while({[], []}, fn {table, fields}, {new, existing} ->
       case create_table(table, fields) do
-        :ok ->
-          {:cont, [table | tables]}
+        {:ok, :created} ->
+          {:cont, {[table | new], existing}}
+
+        {:ok, :exists} ->
+          {:cont, {new, [table | existing]}}
 
         {:error, :failed_to_create_table, err} ->
           {:halt, {:error, :failed_to_create_table, table, fields, err}}
       end
     end)
+    |> case do
+      {_, _} = tables ->
+        {:ok, tables}
+
+      e ->
+        e
+    end
   end
 
   # @doc """

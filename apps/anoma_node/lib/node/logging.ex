@@ -30,7 +30,6 @@ defmodule Anoma.Node.Logging do
   alias Anoma.Node.Registry
   alias Anoma.Node.Tables
   alias Anoma.Node.Transaction.Mempool
-  alias Anoma.Node.Transaction.Storage
 
   use EventBroker.DefFilter
   use GenServer

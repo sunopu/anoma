@@ -7,6 +7,8 @@ defmodule Anoma.Node.Supervisor do
 
   require Logger
 
+  alias Anoma.Node.Tables
+
   @spec child_spec(any()) :: map()
   def child_spec(args) do
     %{
@@ -36,15 +38,48 @@ defmodule Anoma.Node.Supervisor do
 
     args = Keyword.validate!(args, [:node_id, :tx_args, grpc_port: 0])
 
-    children = [
-      {Anoma.Node.Transport.Supervisor,
-       node_id: args[:node_id], grpc_port: args[:grpc_port]},
-      {Anoma.Node.Transaction.Supervisor,
-       [node_id: args[:node_id], tx_args: args[:tx_args]]},
-      {Anoma.Node.Intents.Supervisor, node_id: args[:node_id]},
-      {Anoma.Node.Logging, node_id: args[:node_id]}
-    ]
+    # initialize storage. if it fails, abort
+    case initialize_storage(args[:node_id]) do
+      {:ok, state} ->
+        replay? = state == :existing_node
 
-    Supervisor.init(children, strategy: :one_for_all)
+        children = [
+          {Anoma.Node.Transport.Supervisor,
+           node_id: args[:node_id], grpc_port: args[:grpc_port]},
+          {Anoma.Node.Transaction.Supervisor,
+           [node_id: args[:node_id], tx_args: args[:tx_args], replay: replay?]},
+          {Anoma.Node.Intents.Supervisor, node_id: args[:node_id]},
+          {Anoma.Node.Logging, node_id: args[:node_id]}
+        ]
+
+        Supervisor.init(children, strategy: :one_for_all)
+
+      _err ->
+        {:stop, :failed_to_init_storage}
+    end
+  end
+
+  ############################################################
+  #                  Private Helpers                         #
+  ############################################################
+
+  @spec initialize_storage(String.t()) ::
+          {:ok, :existing_node | :new_node}
+          | {:error, :failed_to_initialize_storage}
+  defp initialize_storage(node_id) do
+    # check if the node has existing tables, and initialize them if need be.
+    case Tables.initialize_tables_for_node(node_id) do
+      {:ok, :created} ->
+        {:ok, :new_node}
+
+      {:ok, :existing} ->
+        {:ok, :existing_node}
+
+      {:error, _e} ->
+        {:error, :failed_to_initialize_storage}
+    end
+  end
+
+  defp attempt_replay(node_id) do
   end
 end

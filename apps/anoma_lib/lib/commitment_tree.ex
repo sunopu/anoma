@@ -40,7 +40,7 @@ defmodule CommitmentTree do
 
   @spec init_storage(String.t()) :: :ok
   def init_storage(node_id \\ "") do
-    :ok = Tables.initialize_tables_for_node(node_id)
+    {:ok, _} = Tables.initialize_tables_for_node(node_id)
 
     :ok
   end
