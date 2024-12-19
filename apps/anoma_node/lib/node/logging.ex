@@ -43,10 +43,6 @@ defmodule Anoma.Node.Logging do
   #                         Tables                           #
   ############################################################
 
-  @events_table Logging.Events
-  @events_table_attrs [:type, :body]
-  @tables [{@events_table, @events_table_attrs}]
-
   ############################################################
   #                         State                            #
   ############################################################
@@ -258,7 +254,7 @@ defmodule Anoma.Node.Logging do
          state
        ) do
     :mnesia.transaction(fn ->
-      table = Tables.node_table_name(state.node_id, @events_table)
+      table = Tables.table_events(state.node_id)
       :mnesia.write({table, id, {backend, code}})
     end)
 
@@ -278,7 +274,7 @@ defmodule Anoma.Node.Logging do
          state
        ) do
     :mnesia.transaction(fn ->
-      table = Tables.node_table_name(state.node_id, @events_table)
+      table = Tables.table_events(state.node_id)
       pending = match(:consensus, table)
       :mnesia.write({table, :consensus, pending ++ [list]})
     end)
@@ -299,7 +295,7 @@ defmodule Anoma.Node.Logging do
          },
          state
        ) do
-    table = Tables.node_table_name(state.node_id, @events_table)
+    table = Tables.table_events(state.node_id)
 
     :mnesia.transaction(fn ->
       for id <- id_list do
@@ -333,10 +329,16 @@ defmodule Anoma.Node.Logging do
   @spec restart_with_replay(String.t()) :: DynamicSupervisor.on_start_child()
   def restart_with_replay(node_id) do
     # if evnets or updates table have data, there was previous data
-    event_table = Tables.node_table_name(node_id, Logging.Events)
-    block_table = Tables.node_table_name(node_id, Storage.Blocks)
-    values_table = Tables.node_table_name(node_id, Storage.Values)
-    updates_table = Tables.node_table_name(node_id, Storage.Updates)
+    # if the transaction supervisor starts:
+    # - is there previous data?
+    # - test data validity
+    # - restore data
+    # - start supervision tree
+    event_table = Tables.table_events(node_id)
+    block_table = Tables.table_blocks(node_id)
+
+    values_table = Tables.table_values(node_id)
+    updates_table = Tables.table_updates(node_id)
 
     setup = replay_setup(event_table, block_table)
     mock_id = Node.prefix_random_id("mock")
@@ -467,11 +469,11 @@ defmodule Anoma.Node.Logging do
   @spec replay_table_clone(atom(), atom(), String.t()) :: any()
   def replay_table_clone(values_table, updates_table, node_id) do
     source_table = values_table
-    target_table = Tables.node_table_name(node_id, Storage.Values)
+    target_table = Tables.table_values(node_id)
     {:ok, :table_copied} = Tables.duplicate_table(source_table, target_table)
 
     source_table = updates_table
-    target_table = Tables.node_table_name(node_id, Storage.Updates)
+    target_table = Tables.table_updates(node_id)
     {:ok, :table_copied} = Tables.duplicate_table(source_table, target_table)
     :ok
   end
@@ -569,13 +571,13 @@ defmodule Anoma.Node.Logging do
   @spec init_table(String.t()) :: :ok
   defp init_table(node_id) do
     # initialize the tables
-    Tables.initialize_tables_for_node(node_id, @tables)
+    Tables.initialize_tables_for_node(node_id)
 
     # clear the table if it was not empty
-    Tables.clear_table(node_id, @events_table)
+    Tables.clear_table(Tables.table_events(node_id))
 
     # insert default record in the events table
-    table = Tables.node_table_name(node_id, @events_table)
+    table = Tables.table_events(node_id)
 
     :mnesia.transaction(fn ->
       :mnesia.write({table, :round, -1})

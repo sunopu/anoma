@@ -18,14 +18,68 @@ defmodule Anoma.Node.Tables do
   #                    Public                                #
   ############################################################
 
+  @tables [
+    {Events, [:type, :body]},
+    {CommitmentTree, [:index, :hash]},
+    {Blocks, [:round, :block]},
+    {Values, [:key, :value]},
+    {Updates, [:key, :value]}
+  ]
+  @doc """
+  I return the table name for the given node its event table.
+  """
+  @spec table_events(String.t()) :: atom()
+  def table_events(node_id) do
+    node_table_name(node_id, Events)
+  end
+
+  @doc """
+  I return the table name for the given node its commitment tree.
+  I can be called without a node id too. In that case I use "no_node" as node id.
+  """
+  def table_commitment_tree(node_id \\ "no_node") do
+    node_table_name(node_id, CommitmentTree)
+  end
+
+  @doc """
+  I return the table name for the given node its blocks.
+  """
+  def table_blocks(node_id) do
+    node_table_name(node_id, Blocks)
+  end
+
+  @doc """
+  I return the table name for the given node its values.
+  """
+  def table_values(node_id) do
+    node_table_name(node_id, Values)
+  end
+
+  @doc """
+  I return the table name for the given node its updates.
+  """
+  def table_updates(node_id) do
+    node_table_name(node_id, Values)
+  end
+
+  @doc """
+  Given a node id, I check whether there is existing data for this node
+  present in the tables.
+  I return true if there is data, false if there is not.
+  """
+  @spec existing_data?(String.t()) :: boolean
+  def existing_data?(node_id) do
+    true
+  end
+
   @doc """
   I initialize the tables for a given node id.
   I do this by creating all tables in the mnesia storage.
   """
-  @spec initialize_tables_for_node(String.t(), table_specs) ::
+  @spec initialize_tables_for_node(String.t()) ::
           :ok | {:error, :failed_to_initialize_tables}
-  def initialize_tables_for_node(node_id, tables) do
-    tables
+  def initialize_tables_for_node(node_id) do
+    @tables
     |> Enum.map(fn {table, fields} ->
       {node_table_name(node_id, table), fields}
     end)
@@ -105,13 +159,10 @@ defmodule Anoma.Node.Tables do
   end
 
   @doc """
-  I clear out the given table for the given node.
+  I clear out the given table.
   """
-  @spec clear_table(String.t(), atom()) ::
-          :ok | {:error, :failed_to_clear_table}
-  def clear_table(node_id, table) do
-    table_name = node_table_name(node_id, table)
-
+  @spec clear_table(atom()) :: :ok | {:error, :failed_to_clear_table}
+  def clear_table(table_name) do
     case :mnesia.clear_table(table_name) do
       {:atomic, _} ->
         :ok

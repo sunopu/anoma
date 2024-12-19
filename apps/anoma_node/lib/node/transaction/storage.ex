@@ -56,13 +56,6 @@ defmodule Anoma.Node.Transaction.Storage do
   use TypedStruct
   require Node.Event
 
-  # list of tables that this engine requires in the mnesia database
-  @tables [
-    {Storage.Values, [:key, :value]},
-    {Storage.Updates, [:key, :value]},
-    {Storage.Blocks, [:round, :block]}
-  ]
-
   ############################################################
   #                         State                            #
   ############################################################
@@ -177,7 +170,7 @@ defmodule Anoma.Node.Transaction.Storage do
       ])
 
     # initialize the tables in the mnesia backend
-    case Tables.initialize_tables_for_node(args[:node_id], @tables) do
+    case Tables.initialize_tables_for_node(args[:node_id]) do
       :ok ->
         state = struct(__MODULE__, Enum.into(args, %{}))
 
@@ -366,7 +359,7 @@ defmodule Anoma.Node.Transaction.Storage do
 
   @spec blocks_table(String.t()) :: atom()
   def blocks_table(node_id) do
-    Tables.node_table_name(node_id, __MODULE__.Blocks)
+    Tables.table_blocks(node_id)
   end
 
   @doc """
@@ -377,7 +370,7 @@ defmodule Anoma.Node.Transaction.Storage do
   """
   @spec values_table(String.t()) :: atom()
   def values_table(node_id) do
-    Tables.node_table_name(node_id, __MODULE__.Values)
+    Tables.table_values(node_id)
   end
 
   @doc """
@@ -388,7 +381,7 @@ defmodule Anoma.Node.Transaction.Storage do
   """
   @spec updates_table(String.t()) :: atom()
   def updates_table(node_id) do
-    Tables.node_table_name(node_id, __MODULE__.Updates)
+    Tables.table_updates(node_id)
   end
 
   ############################################################

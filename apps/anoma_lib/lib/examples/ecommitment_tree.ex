@@ -62,8 +62,8 @@ defmodule Examples.ECommitmentTree do
   def empty_mnesia_backed_ct(spec \\ sha256_32_spec()) do
     CommitmentTree.init_storage("no_node")
 
-    table_name = Tables.node_table_name("no_node", CommitmentTree)
-    Tables.clear_table("no_node", CommitmentTree)
+    table_name = Tables.table_commitment_tree()
+    Tables.clear_table(Tables.table_commitment_tree())
     tree = CommitmentTree.new(spec, table_name)
 
     assert tree.size == 0
@@ -80,7 +80,7 @@ defmodule Examples.ECommitmentTree do
   # """
   @spec current_tree_mnesia_ct(CommitmentTree.Spec.t()) :: CommitmentTree.t()
   def current_tree_mnesia_ct(spec) do
-    table_name = Tables.node_table_name("no_node", CommitmentTree)
+    table_name = Tables.table_commitment_tree()
     tree = CommitmentTree.new(spec, table_name)
 
     assert :mnesia.table_info(table_name, :size) == tree.size
