@@ -8,7 +8,6 @@ defmodule Anoma.Node.Supervisor do
   require Logger
 
   alias Anoma.Node.Tables
-  alias Anoma.Node.Logging
   @spec child_spec(any()) :: map()
   def child_spec(args) do
     %{
@@ -59,6 +58,7 @@ defmodule Anoma.Node.Supervisor do
         replay_args =
           if replay? do
             {:ok, replay_args} = attempt_replay(args[:node_id])
+            replay_args
           else
             args[:tx_args]
           end

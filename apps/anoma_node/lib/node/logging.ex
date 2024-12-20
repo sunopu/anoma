@@ -319,7 +319,7 @@ defmodule Anoma.Node.Logging do
   If this replay succeedd, I return ok, and the arguments to start up the node.
   If I fail, I return an error tuple.
   """
-  @spec try_replay(String.t()) :: DynamicSupervisor.on_start_child()
+  # @spec try_replay(String.t()) :: DynamicSupervisor.on_start_child()
   def try_replay(node_id) do
     # if evnets or updates table have data, there was previous data
     # if the transaction supervisor starts:
@@ -342,20 +342,20 @@ defmodule Anoma.Node.Logging do
 
     res = try_launch(mock_id, replay_args)
 
-    # case res do
-    #   :ok ->
-    #     {:ok, :replay_succeeded, replay_args}
+    case res do
+      :ok ->
+        {:ok, :replay_succeeded, replay_args}
 
-    #   :error ->
-    #     replay_args =
-    #       replay_args
-    #       |> Keyword.update!(
-    #         :mempool,
-    #         &Keyword.drop(&1, [:transactions, :consensus])
-    #       )
+      :error ->
+        replay_args =
+          replay_args
+          |> Keyword.update!(
+            :mempool,
+            &Keyword.drop(&1, [:transactions, :consensus])
+          )
 
-    #     {:error, :replay_failed}
-    # end
+        {:error, :replay_failed, replay_args}
+    end
   end
 
   @doc """
@@ -383,9 +383,14 @@ defmodule Anoma.Node.Logging do
     values_table = Tables.table_values(node_id)
     updates_table = Tables.table_updates(node_id)
 
+    # replay_Data
     setup = replay_setup(event_table, block_table)
     mock_id = Node.prefix_random_id("mock")
+
+    # copy tables
     replay_table_clone(values_table, updates_table, mock_id)
+
+    #
     replay_args = replay_args(setup)
 
     res =
@@ -513,7 +518,7 @@ defmodule Anoma.Node.Logging do
   @doc """
   I am the function making a table copy for replay.
 
-  Given original updates and values table used by the Storage, I copy their
+  Given original updates and values ta   ble used by the Storage, I copy their
   data to separate tables for a new node. Used for trying a replay on a
   mock node.
   """
