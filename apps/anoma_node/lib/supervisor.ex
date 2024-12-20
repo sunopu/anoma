@@ -45,7 +45,8 @@ defmodule Anoma.Supervisor do
       Keyword.validate!(args, [
         :node_id,
         :grpc_port,
-        tx_args: [mempool: [], ordering: [], storage: []]
+        tx_args: [mempool: [], ordering: [], storage: []],
+        try_replay: true
       ])
 
     DynamicSupervisor.start_child(

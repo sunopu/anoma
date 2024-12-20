@@ -141,7 +141,8 @@ defmodule Anoma.Node.Tables do
   """
   @spec node_table_name(String.t(), atom()) :: atom()
   def node_table_name(node_id, name) do
-    String.to_atom("#{name}_#{node_id}")
+    # String.to_atom("#{name}_#{node_id}")
+    String.to_atom("#{node_id}_#{name}")
   end
 
   @doc """

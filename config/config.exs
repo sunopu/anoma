@@ -29,7 +29,7 @@ config :event_broker, []
 #                  default: true
 config :anoma_node, :mnesia,
   persist_to_disk: true,
-  rocksdb: true
+  rocksdb: false
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

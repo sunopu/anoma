@@ -315,6 +315,50 @@ defmodule Anoma.Node.Logging do
   ############################################################
 
   @doc """
+  Given a node id, I try to do a replay of the previous state.
+  If this replay succeedd, I return ok, and the arguments to start up the node.
+  If I fail, I return an error tuple.
+  """
+  @spec try_replay(String.t()) :: DynamicSupervisor.on_start_child()
+  def try_replay(node_id) do
+    # if evnets or updates table have data, there was previous data
+    # if the transaction supervisor starts:
+    # - is there previous data?
+    # - test data validity
+    # - restore data
+    # - start supervision tree
+    event_table = Tables.table_events(node_id)
+    block_table = Tables.table_blocks(node_id)
+    values_table = Tables.table_values(node_id)
+    updates_table = Tables.table_updates(node_id)
+
+    setup = replay_setup(event_table, block_table)
+
+    mock_id = Node.prefix_random_id("mock")
+
+    replay_table_clone(values_table, updates_table, mock_id)
+
+    replay_args = replay_args(setup)
+
+    res = try_launch(mock_id, replay_args)
+
+    # case res do
+    #   :ok ->
+    #     {:ok, :replay_succeeded, replay_args}
+
+    #   :error ->
+    #     replay_args =
+    #       replay_args
+    #       |> Keyword.update!(
+    #         :mempool,
+    #         &Keyword.drop(&1, [:transactions, :consensus])
+    #       )
+
+    #     {:error, :replay_failed}
+    # end
+  end
+
+  @doc """
   I am the function to be played on restarts of the Anoma node with known ID.
 
   I sync the event table with the blocks submitted and then launch a mock
@@ -349,7 +393,11 @@ defmodule Anoma.Node.Logging do
 
     case res do
       :ok ->
-        Anoma.Supervisor.start_node(node_id: node_id, tx_args: replay_args)
+        Anoma.Supervisor.start_node(
+          node_id: node_id,
+          tx_args: replay_args,
+          try_replay: false
+        )
 
       :error ->
         base_args =
@@ -380,7 +428,11 @@ defmodule Anoma.Node.Logging do
       EventBroker.subscribe_me([])
 
       {:ok, _pid} =
-        Anoma.Supervisor.start_node(node_id: mock_id, tx_args: replay_args)
+        Anoma.Supervisor.start_node(
+          node_id: mock_id,
+          tx_args: replay_args,
+          try_replay: false
+        )
 
       final_consensus = List.last(replay_args[:mempool][:consensus])
 
