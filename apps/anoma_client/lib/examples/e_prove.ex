@@ -46,7 +46,7 @@ defmodule Anoma.Client.Examples.EProve do
   def prove_squared_small() do
     # jammed base64 encoded square function that takes in one parameter
     {:ok, program} =
-      "BcGCZJgJ7v9BMmQQLewS4uPxRKY="
+      "BcGCZJgJ8v+DZMggWtglxMfliUwB"
       |> Base.decode64!()
       |> Noun.Jam.cue()
 
